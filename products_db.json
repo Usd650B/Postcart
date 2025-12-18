@@ -1,0 +1,132 @@
+{
+  "products": [
+    {
+      "id": 1766009560366,
+      "image": "https://images.unsplash.com/photo-1552346154-21d32810aba3?w=600",
+      "name": "Street Hoodie",
+      "price": "55",
+      "description": "Streetwear essentials.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766009560365,
+      "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600",
+      "name": "Classic Heels",
+      "price": "120",
+      "description": "Classic heels for your next event.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766009560364,
+      "image": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600",
+      "name": "Summer Dress",
+      "price": "79",
+      "description": "New summer dress just arrived! $79",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766006904735,
+      "image": "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600",
+      "name": "Leather Boots",
+      "price": "180",
+      "description": "Premium leather boots.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766006904734,
+      "image": "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600",
+      "name": "Retro Runners",
+      "price": "95",
+      "description": "Retro runners in various colors.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766006904731,
+      "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600",
+      "name": "Classic Heels",
+      "price": "120",
+      "description": "Classic heels for your next event.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766006904730,
+      "image": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600",
+      "name": "Summer Dress",
+      "price": "79",
+      "description": "New summer dress just arrived! $79",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766005236402,
+      "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600",
+      "name": "Leath Jacket",
+      "price": "149",
+      "description": "Handcrafted leather.",
+      "platform": "Facebook"
+    },
+    {
+      "id": 1766005236403,
+      "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600",
+      "name": "Sneakers",
+      "price": "89",
+      "description": "High performance.",
+      "platform": "Facebook"
+    },
+    {
+      "id": 1766005236404,
+      "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+      "name": "Smart Watch",
+      "price": "299",
+      "description": "Stay connected.",
+      "platform": "Facebook"
+    },
+    {
+      "id": 1766005236405,
+      "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
+      "name": "Headphones",
+      "price": "199",
+      "description": "Noise cancelling.",
+      "platform": "Facebook"
+    },
+    {
+      "id": 1766005208569,
+      "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600",
+      "name": "Sneakers",
+      "price": "89",
+      "description": "High performance.",
+      "platform": "Facebook"
+    },
+    {
+      "id": 1766005208571,
+      "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
+      "name": "Headphones",
+      "price": "199",
+      "description": "Noise cancelling.",
+      "platform": "Facebook"
+    },
+    {
+      "id": 1766003405695,
+      "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800",
+      "name": "Classic Leather Jacket",
+      "price": "149.99",
+      "description": "Premium quality handcrafted leather jacket. Found on Instagram.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766003405696,
+      "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800",
+      "name": "Red Runner Sneakers",
+      "price": "89.00",
+      "description": "High performance running shoes. Found on Facebook.",
+      "platform": "Instagram"
+    },
+    {
+      "id": 1766003405697,
+      "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
+      "name": "Smart Watch Series 5",
+      "price": "299.00",
+      "description": "Stay connected with this sleek and powerful smart watch.",
+      "platform": "Instagram"
+    }
+  ]
+}
