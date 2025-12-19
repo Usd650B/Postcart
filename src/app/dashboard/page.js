@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { db, storage, auth } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { onAuthStateChanged } from 'firebase/auth';
 import { extractProductFromCaption, enhanceProductImage } from '@/lib/ai';
 
 const MOCK_SOCIAL_POSTS = {
@@ -19,6 +20,7 @@ const MOCK_SOCIAL_POSTS = {
 };
 
 export default function Dashboard() {
+    const [currentUser, setCurrentUser] = useState(null);
     const [activeTab, setActiveTab] = useState('overview');
     const [isConnected, setIsConnected] = useState(false);
     const [isExtracting, setIsExtracting] = useState(false);
@@ -43,35 +45,47 @@ export default function Dashboard() {
     const [newProduct, setNewProduct] = useState({ name: '', price: '', description: '', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600' });
 
     useEffect(() => {
-        // Real-time listener for products, orders, and settings
-        const sellerRef = doc(db, "sellers", "default-seller");
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser(user);
 
-        const unsubscribe = onSnapshot(sellerRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.products) setProducts(data.products);
-                if (data.orders) setOrders(data.orders);
-                if (data.settings) setSettings(prev => ({ ...prev, ...data.settings }));
-                setIsConnected(true);
+                // Real-time listener for products, orders, and settings
+                const sellerRef = doc(db, "sellers", user.uid);
+
+                const unsubscribeSnap = onSnapshot(sellerRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data.products) setProducts(data.products);
+                        if (data.orders) setOrders(data.orders);
+                        if (data.settings) setSettings(prev => ({ ...prev, ...data.settings }));
+                        setIsConnected(true);
+                    } else {
+                        // Seed from products_db.json if Firestore is empty
+                        fetch('/api/products')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.products && data.products.length > 0) {
+                                    console.log("Seeding Firestore from local DB...");
+                                    const sellerRefSync = doc(db, "sellers", user.uid);
+                                    setDoc(sellerRefSync, {
+                                        products: data.products,
+                                        orders: [],
+                                        settings: settings
+                                    });
+                                }
+                            })
+                            .catch(err => console.error("Seeding failed", err));
+                    }
+                });
+
+                setStoreLink(`${window.location.origin}/store/${user.uid}`);
+
+                return () => unsubscribeSnap();
             } else {
-                // Seed from products_db.json if Firestore is empty
-                fetch('/api/products')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.products && data.products.length > 0) {
-                            console.log("Seeding Firestore from local DB...");
-                            syncToDB({
-                                products: data.products,
-                                orders: [],
-                                settings: settings
-                            });
-                        }
-                    })
-                    .catch(err => console.error("Seeding failed", err));
+                // If no user is logged in, redirect to login page
+                window.location.href = '/login';
             }
         });
-
-        setStoreLink(`${window.location.origin}/store/my-social-shop`);
 
         const handleTabSwitch = (e) => {
             if (e.detail && typeof e.detail === 'string') {
@@ -81,14 +95,15 @@ export default function Dashboard() {
 
         window.addEventListener('setDashboardTab', handleTabSwitch);
         return () => {
-            unsubscribe();
+            unsubscribeAuth();
             window.removeEventListener('setDashboardTab', handleTabSwitch);
         };
     }, []);
 
     const syncToDB = async (updates) => {
+        if (!currentUser) return;
         try {
-            const sellerRef = doc(db, "sellers", "default-seller");
+            const sellerRef = doc(db, "sellers", currentUser.uid);
             const docSnap = await getDoc(sellerRef);
 
             if (!docSnap.exists()) {

@@ -51,10 +51,14 @@ Integrated with the **Photoroom API**, sellers can remove messy backgrounds from
 ### 3. Real-time Dashboard
 The dashboard uses Firebase's `onSnapshot` to provide real-time updates. When a seller adds a product or changes a setting, the buyer's storefront updates instantly without a refresh.
 
-### 4. Smart Seeding
-To ensure a smooth onboarding experience, the app automatically seeds the Firestore database from a local `products_db.json` if the seller's account is new.
+### 4. Multi-Tenancy & Data Isolation
+The backend is now truly **solid** and production-ready. 
+- **Isolated Data**: Every seller's data (products, orders, settings) is stored in a unique document in Firestore named after their Firebase Auth `uid`.
+- **Private Stores**: Store URLs are dynamic (e.g., `/store/[uid]`), ensuring no data overlap between different sellers.
+- **Scoped Checkout**: The shopping cart and checkout process are scoped to the specific seller, preventing cross-store cart issues.
 
-## 🔄 Data Flow
+### 5. Smart Seeding
+To ensure a smooth onboarding experience, the app automatically seeds the Firestore database from a local `products_db.json` whenever a **new** seller accesses their dashboard for the first time.
 
 1. **Connect**: Seller connects "Sync Social" (Simulated).
 2. **Scan**: Postcart pulls posts (Image + Caption).

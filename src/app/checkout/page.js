@@ -1,20 +1,22 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import StoreNavbar from '@/components/StoreNavbar';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
-export default function Checkout() {
+function CheckoutContent() {
     const [cart, setCart] = useState([]);
     const [customerInfo, setCustomerInfo] = useState({ firstName: '', lastName: '', address: '', city: '', zip: '' });
     const [step, setStep] = useState(1);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const sellerId = searchParams.get('sellerId') || 'default-seller';
 
     useEffect(() => {
-        const savedCart = localStorage.getItem('postcart_cart');
+        const savedCart = localStorage.getItem(`postcart_cart_${sellerId}`);
         if (savedCart) setCart(JSON.parse(savedCart));
-    }, []);
+    }, [sellerId]);
 
     const handleFinish = async (e) => {
         e.preventDefault();
@@ -29,7 +31,7 @@ export default function Checkout() {
         };
 
         try {
-            const sellerRef = doc(db, "sellers", "default-seller");
+            const sellerRef = doc(db, "sellers", sellerId);
             const docSnap = await getDoc(sellerRef);
 
             if (docSnap.exists()) {
@@ -39,10 +41,10 @@ export default function Checkout() {
             }
 
             setStep(3);
-            localStorage.removeItem('postcart_cart');
+            localStorage.removeItem(`postcart_cart_${sellerId}`);
 
             setTimeout(() => {
-                router.push('/store/my-social-shop');
+                router.push(`/store/${sellerId}`);
             }, 6000);
         } catch (err) {
             console.error("Order failed", err);
@@ -161,5 +163,13 @@ export default function Checkout() {
                 </div>
             </div>
         </div >
+    );
+}
+
+export default function Checkout() {
+    return (
+        <Suspense fallback={<div>Loading checkout...</div>}>
+            <CheckoutContent />
+        </Suspense>
     );
 }

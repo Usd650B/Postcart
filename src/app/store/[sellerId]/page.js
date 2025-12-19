@@ -19,7 +19,7 @@ export default function StorePage({ params: paramsPromise }) {
         if (!sellerId) return;
 
         // Real-time listener for products and settings from the seller's cloud doc
-        const sellerRef = doc(db, "sellers", sellerId === "my-social-shop" ? "default-seller" : sellerId);
+        const sellerRef = doc(db, "sellers", sellerId);
 
         const unsubscribe = onSnapshot(sellerRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -43,7 +43,7 @@ export default function StorePage({ params: paramsPromise }) {
         });
 
         // Initialize cart from local storage
-        const savedCart = localStorage.getItem('postcart_cart');
+        const savedCart = localStorage.getItem(`postcart_cart_${sellerId}`);
         if (savedCart) setCart(JSON.parse(savedCart));
 
         return () => unsubscribe();
@@ -52,7 +52,7 @@ export default function StorePage({ params: paramsPromise }) {
     const addToCart = (product) => {
         const newCart = [...cart, product];
         setCart(newCart);
-        localStorage.setItem('postcart_cart', JSON.stringify(newCart));
+        localStorage.setItem(`postcart_cart_${sellerId}`, JSON.stringify(newCart));
         setShowCart(true);
     };
 
@@ -60,7 +60,7 @@ export default function StorePage({ params: paramsPromise }) {
         const newCart = [...cart];
         newCart.splice(index, 1);
         setCart(newCart);
-        localStorage.setItem('postcart_cart', JSON.stringify(newCart));
+        localStorage.setItem(`postcart_cart_${sellerId}`, JSON.stringify(newCart));
     };
 
     const total = cart.reduce((acc, item) => acc + parseFloat(item.price), 0);
@@ -211,7 +211,7 @@ export default function StorePage({ params: paramsPromise }) {
                                     <span>Total</span>
                                     <span>{total.toLocaleString()} TSh</span>
                                 </div>
-                                <Link href="/checkout">
+                                <Link href={`/checkout?sellerId=${sellerId}`}>
                                     <button className="primary" style={{ width: '100%', padding: '1.1rem', fontSize: '1rem' }}>Checkout Now</button>
                                 </Link>
                                 <button
