@@ -147,7 +147,12 @@ export default function Dashboard() {
 
         try {
             // Attempt Live Fetch first
-            const response = await fetch(`/api/social/instagram/media?userId=${currentUser.uid}`);
+            const token = await currentUser.getIdToken();
+            const response = await fetch(`/api/social/instagram/media?userId=${currentUser.uid}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const data = await response.json();
 
             if (!data.error) {

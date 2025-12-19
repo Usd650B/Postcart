@@ -1,22 +1,47 @@
 "use client";
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import StoreNavbar from '@/components/StoreNavbar';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 
 export default function StorePage({ params: paramsPromise }) {
     const params = use(paramsPromise);
     const sellerId = params.sellerId;
+    const router = useRouter();
 
     const [products, setProducts] = useState([]);
     const [cart, setCart] = useState([]);
     const [showCart, setShowCart] = useState(false);
     const [sellerName, setSellerName] = useState('Social Shop');
     const [layout, setLayout] = useState('grid');
+    const [currentUser, setCurrentUser] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isOwner, setIsOwner] = useState(false);
 
     useEffect(() => {
-        if (!sellerId) return;
+        // Check authentication first
+        const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+            setCurrentUser(user);
+            setIsOwner(user && user.uid === sellerId);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribeAuth();
+    }, [sellerId]);
+
+    useEffect(() => {
+        if (!sellerId || isLoading) return;
+
+        // SECURITY CHECK: Only allow access if user is the owner OR if it's a public store view
+        // For now, we'll allow public viewing but add owner-only features
+        if (!isOwner && !currentUser) {
+            // Optional: You could redirect unauthenticated users to login
+            // router.push('/login');
+            // return;
+        }
 
         // Real-time listener for products and settings from the seller's cloud doc
         const sellerRef = doc(db, "sellers", sellerId);
