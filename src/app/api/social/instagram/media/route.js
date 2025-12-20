@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export async function GET(request) {
@@ -11,6 +11,19 @@ export async function GET(request) {
     }
 
     try {
+        // SECURITY: Verify the caller is authenticated and is the owner of the requested userId
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return NextResponse.json({ error: 'Unauthorized - Missing or invalid token' }, { status: 401 });
+        }
+
+        const token = authHeader.split('Bearer ')[1];
+        const decodedToken = await auth.verifyIdToken(token);
+        
+        if (decodedToken.uid !== userId) {
+            return NextResponse.json({ error: 'Forbidden - You can only access your own data' }, { status: 403 });
+        }
+
         // 1. Get the long-lived token from Firestore
         const sellerRef = doc(db, "sellers", userId);
         const docSnap = await getDoc(sellerRef);

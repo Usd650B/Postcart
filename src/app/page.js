@@ -79,7 +79,7 @@ export default function Home() {
           lineHeight: '1.6',
           fontWeight: '500'
         }}>
-          Stop managing inventory manually. PostCart AI extracts product details from your posts and builds a professional TSh store in seconds. Support for M-Pesa & Tigo-Pesa built-in.
+          Transform your social campaigns into sales. PostCart AI extracts product details from your posts and builds a professional store in seconds.
         </p>
 
         <div className="flex mobile-stack" style={{ justifyContent: 'center', gap: '1.5rem', marginBottom: '4rem' }}>
