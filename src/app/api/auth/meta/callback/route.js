@@ -3,6 +3,13 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
 export async function GET(request) {
+    // Handle case where Firebase is not initialized (e.g., during build)
+    if (!db) {
+        return NextResponse.json({ 
+            error: 'Firebase not initialized. Please check environment variables.' 
+        }, { status: 500 });
+    }
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state'); // Should be userId
