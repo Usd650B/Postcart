@@ -2,43 +2,61 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// This is a temporary local database to sync products across browsers
+// Seed data file - read-only on Vercel (static file in repo)
 const DATA_FILE = path.join(process.cwd(), 'products_db.json');
 
-// Initialize with a robust structure
-if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({
-        products: [],
-        orders: [],
-        settings: {
-            storeName: "My Social Shop",
-            primaryColor: "#6366f1",
-            contactEmail: "seller@example.com",
-            layout: "grid"
-        }
-    }));
-}
+// Default seed data structure
+const DEFAULT_DATA = {
+    products: [],
+    orders: [],
+    settings: {
+        storeName: "My Social Shop",
+        primaryColor: "#6366f1",
+        contactEmail: "seller@example.com",
+        layout: "grid"
+    }
+};
 
+/**
+ * GET /api/products
+ * Returns seed data from products_db.json for initializing new seller accounts.
+ * This is read-only and works on Vercel since we're reading a static file.
+ */
 export async function GET() {
     try {
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        return NextResponse.json(JSON.parse(data));
+        // Try to read the seed data file (works on Vercel for static files)
+        if (fs.existsSync(DATA_FILE)) {
+            const data = fs.readFileSync(DATA_FILE, 'utf8');
+            const parsed = JSON.parse(data);
+            // Ensure the structure matches what the dashboard expects
+            return NextResponse.json({
+                products: parsed.products || [],
+                orders: parsed.orders || [],
+                settings: parsed.settings || DEFAULT_DATA.settings
+            });
+        } else {
+            // If file doesn't exist, return default structure
+            return NextResponse.json(DEFAULT_DATA);
+        }
     } catch (error) {
-        return NextResponse.json({ products: [], orders: [], settings: {} });
+        console.error('Error reading seed data:', error);
+        // Return default structure on error
+        return NextResponse.json(DEFAULT_DATA);
     }
 }
 
+/**
+ * POST /api/products
+ * NOTE: Writing to filesystem is not supported on Vercel serverless functions.
+ * This endpoint is kept for backward compatibility but does nothing.
+ * All data should be stored in Firestore instead.
+ */
 export async function POST(request) {
-    try {
-        const body = await request.json();
-        const currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-
-        // Merge or replace based on what was sent
-        const updatedData = { ...currentData, ...body };
-
-        fs.writeFileSync(DATA_FILE, JSON.stringify(updatedData, null, 2));
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
+    // On Vercel, we cannot write to the filesystem
+    // All data persistence should go through Firestore
+    return NextResponse.json({ 
+        success: false, 
+        message: 'File writes not supported on serverless. Use Firestore for data persistence.',
+        error: 'Serverless functions are read-only'
+    }, { status: 501 });
 }

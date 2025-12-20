@@ -6,18 +6,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { extractProductFromCaption, enhanceProductImage } from '@/lib/ai';
 
-const MOCK_SOCIAL_POSTS = {
-    Instagram: [
-        { id: 'ig1', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600', caption: 'New summer dress just arrived! Only 79,000/- #fashion #summer' },
-        { id: 'ig2', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600', caption: 'Classic heels for your next event. Price: 120k TSh. DM to order!' },
-        { id: 'ig3', image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=600', caption: 'Streetwear essentials. Grab this hoodie for 55,000 TSh. #streetstyle' }
-    ],
-    Facebook: [
-        { id: 'fb1', image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600', caption: 'Handcrafted leather jacket. Premium quality. 149,000 TSh.' },
-        { id: 'fb2', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600', caption: 'High performance sneakers. Ready for the track? 89,000/-' },
-        { id: 'fb3', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600', caption: 'Smart Watch Series 5. Stay connected. Only 299k TSh.' }
-    ]
-};
+// Mock data removed - app now uses only real-time data from:
+// 1. URL extraction via AI (/api/social/extract)
+// 2. Meta Official API (/api/social/instagram/media)
+// 3. Firestore real-time listeners (products, orders, settings)
 
 export default function Dashboard() {
     const [currentUser, setCurrentUser] = useState(null);
@@ -131,43 +123,101 @@ export default function Dashboard() {
     };
 
     const handleStartAssessment = async () => {
-        // Validation for mock flow
-        if (!process.env.NEXT_PUBLIC_META_APP_ID || process.env.NEXT_PUBLIC_META_APP_ID.includes('your_app_id')) {
-            if (!socialUrl) {
-                alert("Please enter a valid social media URL to extract products from.");
-                return;
-            }
-        }
-
         setIsAssessing(true);
 
         try {
-            // Attempt Live Fetch if possible
-            if (process.env.NEXT_PUBLIC_META_APP_ID && !process.env.NEXT_PUBLIC_META_APP_ID.includes('your_app_id')) {
-                const response = await fetch(`/api/social/instagram/media?userId=${currentUser.uid}`);
-                const data = await response.json();
+            // Priority 1: If URL is provided, use AI to extract from that URL
+            if (socialUrl && socialUrl.trim().length > 0) {
+                try {
+                    const response = await fetch('/api/social/extract', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            url: socialUrl.trim(),
+                            platform: activePlatform
+                        })
+                    });
 
-                if (!data.error) {
-                    setSocialFeed(data.posts || []);
-                    setImportStep('posts');
-                    setIsAssessing(false);
-                    return;
+                    const data = await response.json();
+
+                    if (data.success && data.product) {
+                        // Convert single product to array format for consistency
+                        setSocialFeed([{
+                            id: `extracted_${Date.now()}`,
+                            image: data.product.image,
+                            caption: data.product.description,
+                            name: data.product.name,
+                            price: data.product.price,
+                            sourceUrl: data.product.sourceUrl
+                        }]);
+                        setImportStep('posts');
+                        setIsAssessing(false);
+                        return;
+                    } else {
+                        throw new Error(data.error || 'Extraction failed');
+                    }
+                } catch (urlError) {
+                    console.warn("URL extraction failed:", urlError);
+                    // Continue to fallback options
                 }
             }
 
-            // Fallback: AI Simulation (using mock data)
-            setTimeout(() => {
-                setSocialFeed(MOCK_SOCIAL_POSTS[activePlatform] || []);
-                setImportStep('posts');
-                setIsAssessing(false);
-            }, 2000);
+            // Priority 2: Attempt official Meta API if configured
+            if (process.env.NEXT_PUBLIC_META_APP_ID && !process.env.NEXT_PUBLIC_META_APP_ID.includes('your_app_id')) {
+                try {
+                    const token = await currentUser.getIdToken();
+                    const response = await fetch(`/api/social/instagram/media?userId=${currentUser.uid}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    const data = await response.json();
+
+                    if (!data.error && data.posts && data.posts.length > 0) {
+                        setSocialFeed(data.posts);
+                        setImportStep('posts');
+                        setIsAssessing(false);
+                        return;
+                    }
+                } catch (metaError) {
+                    console.warn("Meta API failed:", metaError);
+                    // Continue to fallback
+                }
+            }
+
+            // Priority 3: No real data available - show helpful error message
+            setIsAssessing(false);
+            
+            if (!socialUrl || socialUrl.trim().length === 0) {
+                alert(
+                    "⚠️ No data source available.\n\n" +
+                    "Please:\n" +
+                    "1. Enter a social media URL (Instagram/Facebook post), OR\n" +
+                    "2. Connect your Meta account using 'Official Connection' button below\n\n" +
+                    "The app uses real-time data only - no mock/demo data."
+                );
+                return;
+            } else {
+                // URL was provided but extraction failed
+                alert(
+                    "❌ Failed to extract products from the URL.\n\n" +
+                    "Possible reasons:\n" +
+                    "• URL is private or requires login\n" +
+                    "• URL is invalid or inaccessible\n" +
+                    "• Network error occurred\n\n" +
+                    "Please try:\n" +
+                    "1. A different public URL, OR\n" +
+                    "2. Connect your Meta account, OR\n" +
+                    "3. Add products manually"
+                );
+                setSocialFeed([]); // Clear feed - no mock data
+                return;
+            }
+
         } catch (error) {
-            console.warn("Sync error, using simulation fallback:", error);
-            setTimeout(() => {
-                setSocialFeed(MOCK_SOCIAL_POSTS[activePlatform] || []);
-                setImportStep('posts');
-                setIsAssessing(false);
-            }, 1000);
+            console.error("Assessment error:", error);
+            alert("Failed to extract products. Please try again or use the manual add option.");
+            setIsAssessing(false);
         }
     };
 
