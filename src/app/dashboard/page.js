@@ -154,11 +154,40 @@ export default function Dashboard() {
                         setIsAssessing(false);
                         return;
                     } else {
-                        throw new Error(data.error || 'Extraction failed');
+                        // Check if this is an Instagram API requirement error
+                        if (data.requiresApi && data.platform === 'Instagram') {
+                            setIsAssessing(false);
+                            alert(
+                                "🔒 Instagram URL Detected\n\n" +
+                                "Instagram posts are protected and require official API access.\n\n" +
+                                "Please:\n" +
+                                "1. Click 'Official Instagram Connection' below to connect your Meta account, OR\n" +
+                                "2. Add products manually using 'Add Manually' button\n\n" +
+                                "Note: Direct URL extraction doesn't work for Instagram due to their security policies."
+                            );
+                            return;
+                        }
+                        throw new Error(data.error || data.details || 'Extraction failed');
                     }
                 } catch (urlError) {
                     console.warn("URL extraction failed:", urlError);
-                    // Continue to fallback options
+                    // Don't continue to fallback - show error immediately
+                    setIsAssessing(false);
+                    
+                    // Check if it's an Instagram-specific error
+                    const errorMessage = urlError.message || '';
+                    if (errorMessage.includes('Instagram') || errorMessage.includes('INSTAGRAM')) {
+                        alert(
+                            "🔒 Instagram URL Detected\n\n" +
+                            "Instagram posts are protected and require official API access.\n\n" +
+                            "Please:\n" +
+                            "1. Click 'Official Instagram Connection' below to connect your Meta account, OR\n" +
+                            "2. Add products manually using 'Add Manually' button\n\n" +
+                            "Note: Direct URL extraction doesn't work for Instagram due to their security policies."
+                        );
+                        return;
+                    }
+                    // Continue to fallback options for other errors
                 }
             }
 
