@@ -124,18 +124,6 @@ export default function Dashboard() {
     };
 
     const handleConnect = (platform) => {
-        const APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
-        const REDIRECT_URI = process.env.NEXT_PUBLIC_META_REDIRECT_URI;
-
-        // If Meta API IS configured, go to official OAuth Flow
-        if (platform === 'Instagram' && APP_ID && !APP_ID.includes('your_app_id')) {
-            const userId = currentUser.uid;
-            const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${REDIRECT_URI}&state=${userId}&scope=instagram_manage_basic,pages_show_list,pages_read_engagement`;
-            window.location.href = oauthUrl;
-            return;
-        }
-
-        // Otherwise, fall back to the Mock/Simulation flow
         setActivePlatform(platform);
         setIsImportModalOpen(true);
         setImportStep('accounts');
@@ -143,36 +131,43 @@ export default function Dashboard() {
     };
 
     const handleStartAssessment = async () => {
+        // Validation for mock flow
+        if (!process.env.NEXT_PUBLIC_META_APP_ID || process.env.NEXT_PUBLIC_META_APP_ID.includes('your_app_id')) {
+            if (!socialUrl) {
+                alert("Please enter a valid social media URL to extract products from.");
+                return;
+            }
+        }
+
         setIsAssessing(true);
 
         try {
-            // Attempt Live Fetch first
-            const response = await fetch(`/api/social/instagram/media?userId=${currentUser.uid}`);
-            const data = await response.json();
+            // Attempt Live Fetch if possible
+            if (process.env.NEXT_PUBLIC_META_APP_ID && !process.env.NEXT_PUBLIC_META_APP_ID.includes('your_app_id')) {
+                const response = await fetch(`/api/social/instagram/media?userId=${currentUser.uid}`);
+                const data = await response.json();
 
-            if (!data.error) {
-                setSocialFeed(data.posts || []);
-                setImportStep('posts');
-                setIsAssessing(false);
-                return;
+                if (!data.error) {
+                    setSocialFeed(data.posts || []);
+                    setImportStep('posts');
+                    setIsAssessing(false);
+                    return;
+                }
             }
 
-            // If "Live" failed because not connected, try to connect if keys exist
-            if (data.error.includes('not connected') && process.env.NEXT_PUBLIC_META_APP_ID?.length > 10) {
-                handleConnect('Instagram');
-                return;
-            }
-
-            throw new Error(data.error);
-        } catch (error) {
-            console.warn("Falling back to AI Simulation:", error);
-
-            // High-fidelity fallback simulation
+            // Fallback: AI Simulation (using mock data)
             setTimeout(() => {
                 setSocialFeed(MOCK_SOCIAL_POSTS[activePlatform] || []);
                 setImportStep('posts');
                 setIsAssessing(false);
             }, 2000);
+        } catch (error) {
+            console.warn("Sync error, using simulation fallback:", error);
+            setTimeout(() => {
+                setSocialFeed(MOCK_SOCIAL_POSTS[activePlatform] || []);
+                setImportStep('posts');
+                setIsAssessing(false);
+            }, 1000);
         }
     };
 
@@ -781,27 +776,71 @@ export default function Dashboard() {
                                             <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                                         )}
                                     </div>
-                                    <h4 style={{ marginBottom: '1rem' }}>Connect your {activePlatform} Profile</h4>
-                                    <div style={{ maxWidth: '450px', margin: '0 auto 2rem' }}>
-                                        <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1.5rem' }}>
-                                            Postcart AI will securely connect to your official media feed to find products, prices, and descriptions automatically.
+                                    <h4 style={{ marginBottom: '1.5rem' }}>Where should we pull products from?</h4>
+
+                                    <div style={{ maxWidth: '450px', margin: '0 auto 2.5rem' }}>
+                                        <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                                            <input
+                                                type="text"
+                                                placeholder={`Paste Profile or Post URL (e.g. instagram.com/shop)`}
+                                                value={socialUrl}
+                                                onChange={(e) => setSocialUrl(e.target.value)}
+                                                style={{
+                                                    textAlign: 'center', fontSize: '1rem', width: '100%',
+                                                    padding: '1rem', borderRadius: '12px', border: '2px solid var(--border)',
+                                                    transition: 'border-color 0.2s', outline: 'none'
+                                                }}
+                                                onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                                                onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                                            />
+                                        </div>
+                                        <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: '1.4' }}>
+                                            Paste any public link. Postcart AI will scan the content to extract products, prices, and descriptions automatically.
                                         </p>
                                     </div>
-                                    <button
-                                        className="primary"
-                                        onClick={handleStartAssessment}
-                                        disabled={isAssessing}
-                                        style={{ padding: '0.8rem 2.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0 auto' }}
-                                    >
-                                        {isAssessing ? (
-                                            <>
-                                                <div className="spinner-small" style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                                                Syncing Live Media...
-                                            </>
-                                        ) : (
-                                            <>Connect & Sync Real Media 🚀</>
-                                        )}
-                                    </button>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                                        <button
+                                            className="primary"
+                                            onClick={handleStartAssessment}
+                                            disabled={isAssessing}
+                                            style={{ padding: '1rem 3rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderRadius: '12px', fontWeight: 'bold' }}
+                                        >
+                                            {isAssessing ? (
+                                                <>
+                                                    <div className="spinner-small" style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                                    Scanning with AI...
+                                                </>
+                                            ) : (
+                                                <>Begin AI Extraction ✨</>
+                                            )}
+                                        </button>
+
+                                        {/* Secondary Option: Official Connection */}
+                                        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9', width: '100%' }}>
+                                            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>OR CONNECT DIRECTLY</p>
+                                            <button
+                                                onClick={() => {
+                                                    const APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
+                                                    const REDIRECT_URI = process.env.NEXT_PUBLIC_META_REDIRECT_URI;
+                                                    if (APP_ID && !APP_ID.includes('your_app_id')) {
+                                                        const userId = currentUser.uid;
+                                                        window.location.href = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${REDIRECT_URI}&state=${userId}&scope=instagram_manage_basic,pages_show_list,pages_read_engagement`;
+                                                    } else {
+                                                        alert("Meta API is not configured for this project yet. Please use the URL paste option above.");
+                                                    }
+                                                }}
+                                                style={{
+                                                    background: 'none', border: 'none', color: '#1877F2',
+                                                    fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 auto'
+                                                }}
+                                            >
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
+                                                Official {activePlatform} Connection
+                                            </button>
+                                        </div>
+                                    </div>
                                     <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }` }} />
                                 </div>
                             )}
