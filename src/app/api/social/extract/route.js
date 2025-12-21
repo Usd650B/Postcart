@@ -18,41 +18,103 @@ export async function POST(request) {
             return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
         }
 
+        // Check if this is an Instagram URL
+        const isInstagramUrl = url.includes('instagram.com');
+        const isFacebookUrl = url.includes('facebook.com');
+
         // Fetch the page content
         let pageContent = '';
         let imageUrl = '';
         let caption = '';
 
-        try {
-            // For Instagram/Facebook, we'll try to extract from the URL structure
-            // Note: Direct scraping is limited due to authentication requirements
-            // This is a simplified approach that works for public profiles/posts
-            
-            const response = await fetch(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
+        // For Instagram, try using oEmbed API first (public endpoint)
+        if (isInstagramUrl) {
+            try {
+                // Instagram oEmbed API (requires authentication for most posts, but worth trying)
+                // Format: https://graph.facebook.com/v18.0/instagram_oembed?url=POST_URL&access_token=TOKEN
+                // Since we don't have token, try direct fetch with better headers
+                let response;
+                try {
+                    response = await fetch(url, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.5',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Referer': 'https://www.instagram.com/'
+                        },
+                        redirect: 'follow'
+                    });
 
-            if (response.ok) {
-                const html = await response.text();
-                
-                // Try to extract Open Graph meta tags (common on social media)
-                const ogImageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
-                const ogDescriptionMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/i);
-                
-                imageUrl = ogImageMatch ? ogImageMatch[1] : '';
-                caption = ogDescriptionMatch ? ogDescriptionMatch[1] : html.substring(0, 500); // Fallback to first 500 chars
-                
-                pageContent = caption;
-            } else {
-                // If direct fetch fails, use AI to analyze the URL itself
-                pageContent = `URL: ${url}. Platform: ${platform || 'Unknown'}. Please extract any product information that might be in this social media post.`;
+                    if (response.ok) {
+                        const html = await response.text();
+                        
+                        // Try to extract Open Graph meta tags
+                        const ogImageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+                        const ogDescriptionMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/i);
+                        const ogTitleMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i);
+                        
+                        imageUrl = ogImageMatch ? ogImageMatch[1] : '';
+                        caption = ogDescriptionMatch ? ogDescriptionMatch[1] : (ogTitleMatch ? ogTitleMatch[1] : '');
+                        
+                        // If we got content, use it
+                        if (caption || imageUrl) {
+                            pageContent = caption || 'Instagram post';
+                        } else {
+                            // Instagram likely blocked the request - throw specific error
+                            throw new Error('INSTAGRAM_PROTECTED');
+                        }
+                    } else if (response.status === 403 || response.status === 401 || response.status === 404) {
+                        // Instagram blocked the request
+                        throw new Error('INSTAGRAM_REQUIRES_API');
+                    } else {
+                        throw new Error('INSTAGRAM_PROTECTED');
+                    }
+                } catch (fetchError) {
+                    // Re-throw if it's our specific error
+                    if (fetchError.message === 'INSTAGRAM_REQUIRES_API' || fetchError.message === 'INSTAGRAM_PROTECTED') {
+                        throw fetchError;
+                    }
+                    // For other errors, check response status if available
+                    if (response && (response.status === 403 || response.status === 401)) {
+                        throw new Error('INSTAGRAM_REQUIRES_API');
+                    }
+                    throw new Error('INSTAGRAM_REQUIRES_API');
+                }
+            } catch (fetchError) {
+                // Instagram URLs are protected - require official API
+                if (fetchError.message === 'INSTAGRAM_REQUIRES_API' || fetchError.message === 'INSTAGRAM_PROTECTED') {
+                    throw new Error('INSTAGRAM_REQUIRES_API');
+                }
+                throw new Error('INSTAGRAM_REQUIRES_API');
             }
-        } catch (fetchError) {
-            console.warn('Direct fetch failed, using AI analysis:', fetchError);
-            // Fallback: Let AI analyze the URL structure
-            pageContent = `Analyze this social media URL: ${url}. Platform: ${platform || 'Unknown'}. Extract product name, price, and description if available.`;
+        } else {
+            // For other URLs (Facebook, product pages, etc.)
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                });
+
+                if (response.ok) {
+                    const html = await response.text();
+                    
+                    // Try to extract Open Graph meta tags
+                    const ogImageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+                    const ogDescriptionMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]+)"/i);
+                    
+                    imageUrl = ogImageMatch ? ogImageMatch[1] : '';
+                    caption = ogDescriptionMatch ? ogDescriptionMatch[1] : html.substring(0, 500);
+                    
+                    pageContent = caption;
+                } else {
+                    pageContent = `URL: ${url}. Platform: ${platform || 'Unknown'}. Please extract any product information that might be in this social media post.`;
+                }
+            } catch (fetchError) {
+                console.warn('Direct fetch failed, using AI analysis:', fetchError);
+                pageContent = `Analyze this social media URL: ${url}. Platform: ${platform || 'Unknown'}. Extract product name, price, and description if available.`;
+            }
         }
 
         // Use Gemini AI to extract product information
@@ -112,9 +174,30 @@ IMPORTANT:
 
     } catch (error) {
         console.error('URL Extraction Error:', error);
+        
+        // Handle specific Instagram error
+        if (error.message === 'INSTAGRAM_REQUIRES_API' || error.message?.includes('INSTAGRAM')) {
+            return NextResponse.json({
+                error: 'Instagram URLs require official API connection',
+                details: 'Instagram posts are protected and cannot be accessed directly. Please use the "Official Instagram Connection" button to connect your Meta account, or add products manually.',
+                requiresApi: true,
+                platform: 'Instagram'
+            }, { status: 403 });
+        }
+        
+        // Check if it's a network/access error
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('CORS')) {
+            return NextResponse.json({
+                error: 'Unable to access URL',
+                details: 'The URL may be private, require login, or be blocked. Try using the official API connection or add products manually.',
+                requiresApi: false
+            }, { status: 403 });
+        }
+        
         return NextResponse.json({
             error: 'Failed to extract product from URL',
-            details: error.message
+            details: error.message || 'Unknown error occurred',
+            requiresApi: false
         }, { status: 500 });
     }
 }
