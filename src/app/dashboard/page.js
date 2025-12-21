@@ -138,6 +138,11 @@ export default function Dashboard() {
                         })
                     });
 
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                        throw new Error(errorData.error || errorData.details || `Server error: ${response.status}`);
+                    }
+
                     const data = await response.json();
 
                     if (data.success && data.product) {
@@ -167,6 +172,36 @@ export default function Dashboard() {
                             );
                             return;
                         }
+                        
+                        // Check if this is a Facebook URL error
+                        if (data.platform === 'Facebook' && data.error?.includes('Facebook')) {
+                            setIsAssessing(false);
+                            alert(
+                                "⚠️ Facebook URL Extraction Issue\n\n" +
+                                "Facebook posts are often protected and may require login.\n\n" +
+                                "The AI will still attempt to extract information, but for best results:\n" +
+                                "1. Use the 'Official Connection' button to connect your Meta account, OR\n" +
+                                "2. Add products manually using 'Add Manually' button\n\n" +
+                                "Note: Public Facebook posts may work, but private posts require API access."
+                            );
+                            return;
+                        }
+                        
+                        // Check for specific error types
+                        if (data.error?.includes('AI extraction service') || data.error?.includes('GEMINI')) {
+                            setIsAssessing(false);
+                            alert(
+                                "⚠️ AI Service Error\n\n" +
+                                "The AI extraction service encountered an error.\n\n" +
+                                "Possible causes:\n" +
+                                "• GEMINI_API_KEY not set in Vercel environment variables\n" +
+                                "• Invalid or expired API key\n" +
+                                "• API rate limit exceeded\n\n" +
+                                "Please check your environment variables or try again later."
+                            );
+                            return;
+                        }
+                        
                         throw new Error(data.error || data.details || 'Extraction failed');
                     }
                 } catch (urlError) {
